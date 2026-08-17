@@ -1278,14 +1278,6 @@
         <span id="toastMessage"></span>
     </div>
 
-    <!-- Instagram Config -->
-    <button class="config-toggle" onclick="toggleConfig()" title="إعدادات المتجر"><i class="fas fa-cog"></i></button>
-    <div class="insta-config" id="instaConfig">
-        <h4><i class="fab fa-instagram"></i> إعدادات الانستجرام</h4>
-        <input type="text" id="instaUsername" placeholder="اسم المستخدم (بدون @)" value="aymen.store14">
-        <button onclick="saveInstaConfig()">حفظ</button>
-    </div>
-
     <script>
         // ===================== DATA =====================
         // FIX: these are now fallback/default values only. If the admin dashboard
@@ -1431,7 +1423,6 @@
             renderCategories();
             renderProducts();
             loadUserData();
-            loadInstaConfig();
 
             document.getElementById('searchInput').addEventListener('input', (e) => {
                 searchQuery = e.target.value.toLowerCase();
@@ -1721,25 +1712,9 @@ ${sizeLine}🎨 اللون: ${selectedColor}
         }
 
         // ===================== INSTAGRAM CONFIG =====================
-        function loadInstaConfig() {
-            const saved = localStorage.getItem('aymen_store_insta');
-            if (saved) {
-                document.getElementById('instaUsername').value = saved;
-            }
-        }
-
-        function saveInstaConfig() {
-            const username = document.getElementById('instaUsername').value.trim();
-            if (username) {
-                localStorage.setItem('aymen_store_insta', username);
-                showToast('تم حفظ إعدادات الانستجرام');
-                toggleConfig();
-            }
-        }
-
-        function toggleConfig() {
-            document.getElementById('instaConfig').classList.toggle('show');
-        }
+        // ملاحظة: اسم مستخدم الانستجرام صار يُدار حصرياً من لوحة الإدارة
+        // (صفحة الإعدادات) عبر storeSettings.instaUsername، بدل ما يكون
+        // قابل للتعديل من أي زائر بواجهة المتجر.
 
         // ===================== UTILS =====================
         function showToast(msg) {
