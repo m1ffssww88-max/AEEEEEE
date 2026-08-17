@@ -935,35 +935,60 @@
          1) روح إلى https://console.firebase.google.com وسجل دخول بحساب Google
          2) اضغط "Add project" وأنشئ مشروع (أي اسم)
          3) من القائمة الجانبية: Build > Firestore Database > Create database
-            اختر وضع "Start in test mode" (يكفي للبداية)
+            اختر وضع "Start in test mode" (سنستبدلها بقاعدة حماية دقيقة بالخطوة 6)
          4) من إعدادات المشروع (⚙️ Project settings) > أضف تطبيق ويب (</>) 
             وسمّه أي اسم، ثم انسخ كائن firebaseConfig اللي يظهر لك
          5) الصق القيم مكان النصوص "ضع-هنا..." تحت مباشرة، واحفظ الملف
+
+         6) لتفعيل حماية حقيقية (تمنع أي شخص غريب من الكتابة بالمتجر):
+            أ) من القائمة الجانبية: Build > Authentication > Get started
+               فعّل مزوّد "Email/Password"، ثم من تبويب Users أضف مستخدم
+               واحد بالضبط: بريد إلكتروني + كلمة مرور (هذا حساب الأدمن،
+               واستخدم نفس البريد وكلمة المرور بشاشة تسجيل دخول لوحة
+               الإدارة بدل "admin")
+            ب) من Firestore Database > Rules الصق القاعدة التالية واضغط Publish:
+
+               rules_version = '2';
+               service cloud.firestore {
+                 match /databases/{database}/documents {
+                   match /aymen_store/data {
+                     allow read: if true;
+                     allow write: if request.auth != null;
+                   }
+                 }
+               }
+
+            هذا يخلي القراءة مفتوحة للجميع (المتجر يشتغل عادي)، لكن
+            الكتابة/التعديل تصير محصورة فقط بمن سجل دخول عبر الحساب
+            اللي أنشأته بالخطوة (أ).
 
          قبل ما تسوي هذا، الموقع سيستمر يشتغل محلياً (localStorage) فقط
          على نفس متصفحك، تماماً متل قبل — بس بدون مزامنة مع الزوار.
     ============================================================ -->
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script>
         const firebaseConfig = {
-            apiKey: "ضع-هنا-apiKey",
-            authDomain: "ضع-هنا-authDomain",
-            projectId: "ضع-هنا-projectId",
-            storageBucket: "ضع-هنا-storageBucket",
-            messagingSenderId: "ضع-هنا-messagingSenderId",
-            appId: "ضع-هنا-appId"
+            apiKey: "AIzaSyAUFFZyilwd81cfywzPBb_OmRA1rp3-aNg",
+            authDomain: "mshmsh-d6437.firebaseapp.com",
+            projectId: "mshmsh-d6437",
+            storageBucket: "mshmsh-d6437.firebasestorage.app",
+            messagingSenderId: "186401872829",
+            appId: "1:186401872829:web:84bda3bd7d316f652cd0d4"
         };
 
         const FIREBASE_CONFIGURED = !Object.values(firebaseConfig).some(v => String(v).startsWith('ضع-هنا'));
         let cloudDb = null;
         let cloudDocRef = null;
+        let cloudAuth = null;
 
         if (FIREBASE_CONFIGURED) {
             try {
                 const app = firebase.initializeApp(firebaseConfig);
                 cloudDb = firebase.firestore();
                 cloudDocRef = cloudDb.collection('aymen_store').doc('data');
+                cloudAuth = firebase.auth();
             } catch (err) {
                 console.error('تعذر تهيئة Firebase:', err);
             }
@@ -1310,6 +1335,7 @@
 
         // ===================== INIT =====================
         document.addEventListener('DOMContentLoaded', async () => {
+            // تحميل أولي سريع (من Firebase إن وجد، وإلا من localStorage) حتى يبان المتجر فوراً
             const live = await fetchCloudStoreData();
             if (live.categories) categories = live.categories;
             if (live.products) products = live.products;
@@ -1325,6 +1351,24 @@
                 searchQuery = e.target.value.toLowerCase();
                 renderProducts();
             });
+
+            // ===== مزامنة حيّة: أي تعديل يسويه الأدمن ينعكس عند كل الزوار فوراً =====
+            // بدون ما يحتاج الزائر يعمل Refresh للصفحة.
+            if (cloudDocRef) {
+                cloudDocRef.onSnapshot((snap) => {
+                    if (!snap.exists) return;
+                    const data = snap.data();
+                    if (data.categories) categories = data.categories;
+                    if (data.products) products = data.products;
+                    if (data.settings) storeSettings = data.settings;
+
+                    applyStoreSettings();
+                    renderCategories();
+                    renderProducts();
+                }, (err) => {
+                    console.error('تعذر الاستماع الحي لتحديثات Firebase:', err);
+                });
+            }
         });
 
         // ===================== STORE SETTINGS =====================
@@ -1644,7 +1688,7 @@ ${sizeLine}🎨 اللون: ${selectedColor}
             <div class="login-logo">14</div>
             <h2>لوحة الإدارة</h2>
             <p>AYMEN.STOR14 - تسجيل الدخول</p>
-            <input type="text" class="login-input" id="loginUser" placeholder="اسم المستخدم">
+            <input type="text" class="login-input" id="loginUser" placeholder="اسم المستخدم (أو البريد الإلكتروني بعد ربط Firebase)">
             <input type="password" class="login-input" id="loginPass" placeholder="كلمة المرور">
             <button class="login-btn" onclick="doLogin()">
                 <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
@@ -2150,22 +2194,44 @@ ${sizeLine}🎨 اللون: ${selectedColor}
             }
         }
 
-        function doLogin() {
+        async function doLogin() {
             const user = document.getElementById('loginUser').value.trim();
             const pass = document.getElementById('loginPass').value.trim();
-            const savedPass = localStorage.getItem('aymen_admin_password') || 'aymen2024';
+            const errorEl = document.getElementById('loginError');
 
+            // إذا Firebase مربوط: تسجيل الدخول حقيقي عبر Firebase Authentication.
+            // هذا هو الشيء اللي تتحقق منه قاعدة الحماية (Security Rules) قبل السماح بالكتابة.
+            if (FIREBASE_CONFIGURED && cloudAuth) {
+                try {
+                    await cloudAuth.signInWithEmailAndPassword(user, pass);
+                    sessionStorage.setItem('aymen_admin_logged', 'true');
+                    errorEl.style.display = 'none';
+                    showDashboard();
+                } catch (err) {
+                    console.error('فشل تسجيل الدخول عبر Firebase:', err);
+                    errorEl.textContent = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+                    errorEl.style.display = 'block';
+                }
+                return;
+            }
+
+            // احتياطي محلي (فقط إذا Firebase غير مُهيّأ بعد) — لا يوفر حماية حقيقية على الكتابة السحابية
+            const savedPass = localStorage.getItem('aymen_admin_password') || 'aymen2024';
             if (user.toLowerCase() === 'admin' && pass === savedPass) {
                 sessionStorage.setItem('aymen_admin_logged', 'true');
-                document.getElementById('loginError').style.display = 'none';
+                errorEl.style.display = 'none';
                 showDashboard();
             } else {
-                document.getElementById('loginError').style.display = 'block';
+                errorEl.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+                errorEl.style.display = 'block';
             }
         }
 
         function doLogout() {
             sessionStorage.removeItem('aymen_admin_logged');
+            if (FIREBASE_CONFIGURED && cloudAuth && cloudAuth.currentUser) {
+                cloudAuth.signOut().catch(err => console.error('تعذر تسجيل الخروج من Firebase:', err));
+            }
             location.reload();
         }
 
@@ -2504,14 +2570,36 @@ ${sizeLine}🎨 اللون: ${selectedColor}
             document.getElementById('passModal').classList.remove('active');
         }
 
-        function changePassword() {
+        async function changePassword() {
             const oldPass = document.getElementById('oldPass').value;
             const newPass = document.getElementById('newPass').value;
             const confirmPass = document.getElementById('confirmPass').value;
-            const savedPass = localStorage.getItem('aymen_admin_password') || 'aymen2024';
 
-            if (oldPass !== savedPass) { showAdminToast('كلمة المرور الحالية غير صحيحة'); return; }
             if (newPass !== confirmPass) { showAdminToast('كلمتا المرور الجديدتان غير متطابقتين'); return; }
+
+            // إذا Firebase مربوط: نغيّر كلمة المرور الحقيقية بحساب Firebase Authentication
+            if (FIREBASE_CONFIGURED && cloudAuth && cloudAuth.currentUser) {
+                if (newPass.length < 6) { showAdminToast('كلمة المرور قصيرة جداً (6 أحرف على الأقل يطلبها Firebase)'); return; }
+                try {
+                    const email = cloudAuth.currentUser.email;
+                    const cred = firebase.auth.EmailAuthProvider.credential(email, oldPass);
+                    await cloudAuth.currentUser.reauthenticateWithCredential(cred);
+                    await cloudAuth.currentUser.updatePassword(newPass);
+                    closePassModal();
+                    showAdminToast('تم تغيير كلمة المرور بنجاح');
+                } catch (err) {
+                    console.error('تعذر تغيير كلمة المرور عبر Firebase:', err);
+                    showAdminToast('كلمة المرور الحالية غير صحيحة أو حدث خطأ');
+                }
+                document.getElementById('oldPass').value = '';
+                document.getElementById('newPass').value = '';
+                document.getElementById('confirmPass').value = '';
+                return;
+            }
+
+            // احتياطي محلي (فقط إذا Firebase غير مُهيّأ بعد)
+            const savedPass = localStorage.getItem('aymen_admin_password') || 'aymen2024';
+            if (oldPass !== savedPass) { showAdminToast('كلمة المرور الحالية غير صحيحة'); return; }
             if (newPass.length < 4) { showAdminToast('كلمة المرور قصيرة جداً'); return; }
 
             localStorage.setItem('aymen_admin_password', newPass);
