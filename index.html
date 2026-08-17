@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AYMEN.STOR14 - متجر التجهيزات الرياضية</title>
+
+    <!-- Google Analytics (GA4) — يسجّل زوار المتجر -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DZ5R69TM2V"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-DZ5R69TM2V');
+    </script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -916,6 +926,99 @@
 </head>
 <body>
 
+    <!-- ============================================================
+         قاعدة بيانات حقيقية (Firebase Firestore) — تُشارك بين كل الزوار
+         ------------------------------------------------------------
+         عشان المنتجات اللي تضيفها من لوحة الإدارة تظهر عند كل زوار
+         المتجر (مو بس بمتصفحك أنت)، لازم تربط مشروع Firebase مجاني:
+
+         1) روح إلى https://console.firebase.google.com وسجل دخول بحساب Google
+         2) اضغط "Add project" وأنشئ مشروع (أي اسم)
+         3) من القائمة الجانبية: Build > Firestore Database > Create database
+            اختر وضع "Start in test mode" (يكفي للبداية)
+         4) من إعدادات المشروع (⚙️ Project settings) > أضف تطبيق ويب (</>) 
+            وسمّه أي اسم، ثم انسخ كائن firebaseConfig اللي يظهر لك
+         5) الصق القيم مكان النصوص "ضع-هنا..." تحت مباشرة، واحفظ الملف
+
+         قبل ما تسوي هذا، الموقع سيستمر يشتغل محلياً (localStorage) فقط
+         على نفس متصفحك، تماماً متل قبل — بس بدون مزامنة مع الزوار.
+    ============================================================ -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "ضع-هنا-apiKey",
+            authDomain: "ضع-هنا-authDomain",
+            projectId: "ضع-هنا-projectId",
+            storageBucket: "ضع-هنا-storageBucket",
+            messagingSenderId: "ضع-هنا-messagingSenderId",
+            appId: "ضع-هنا-appId"
+        };
+
+        const FIREBASE_CONFIGURED = !Object.values(firebaseConfig).some(v => String(v).startsWith('ضع-هنا'));
+        let cloudDb = null;
+        let cloudDocRef = null;
+
+        if (FIREBASE_CONFIGURED) {
+            try {
+                const app = firebase.initializeApp(firebaseConfig);
+                cloudDb = firebase.firestore();
+                cloudDocRef = cloudDb.collection('aymen_store').doc('data');
+            } catch (err) {
+                console.error('تعذر تهيئة Firebase:', err);
+            }
+        }
+
+        // يقرأ بيانات المتجر (تصنيفات/منتجات/إعدادات) من السحابة أولاً،
+        // وإن تعذر (غير مُهيّأ أو لا يوجد اتصال) يرجع لـ localStorage كنسخة احتياطية.
+        async function fetchCloudStoreData() {
+            const localFallback = {
+                categories: JSON.parse(localStorage.getItem('aymen_admin_categories') || 'null'),
+                products: JSON.parse(localStorage.getItem('aymen_admin_products') || 'null'),
+                settings: JSON.parse(localStorage.getItem('aymen_admin_settings') || 'null')
+            };
+
+            if (!cloudDocRef) return localFallback;
+
+            try {
+                const snap = await cloudDocRef.get();
+                if (snap.exists) {
+                    const data = snap.data();
+                    // نحدّث النسخة المحلية كنسخة احتياطية سريعة لآخر بيانات معروفة
+                    if (data.categories) localStorage.setItem('aymen_admin_categories', JSON.stringify(data.categories));
+                    if (data.products) localStorage.setItem('aymen_admin_products', JSON.stringify(data.products));
+                    if (data.settings) localStorage.setItem('aymen_admin_settings', JSON.stringify(data.settings));
+                    return data;
+                }
+                return localFallback;
+            } catch (err) {
+                console.error('تعذر القراءة من Firebase، سيتم استخدام النسخة المحلية:', err);
+                return localFallback;
+            }
+        }
+
+        // يحفظ بيانات المتجر في السحابة (تظهر لكل الزوار) وفي localStorage كنسخة احتياطية محلية
+        async function saveCloudStoreData(data) {
+            try {
+                localStorage.setItem('aymen_admin_categories', JSON.stringify(data.categories));
+                localStorage.setItem('aymen_admin_products', JSON.stringify(data.products));
+                localStorage.setItem('aymen_admin_settings', JSON.stringify(data.settings));
+            } catch (err) {
+                console.error('تعذر الحفظ محلياً (المساحة ممتلئة على الأرجح):', err);
+            }
+
+            if (!cloudDocRef) return { ok: false, reason: 'not-configured' };
+
+            try {
+                await cloudDocRef.set(data);
+                return { ok: true };
+            } catch (err) {
+                console.error('تعذر الحفظ على Firebase:', err);
+                return { ok: false, reason: 'cloud-error', error: err };
+            }
+        }
+    </script>
+
     <!-- Header -->
     <header class="header">
         <div class="logo-container">
@@ -1187,25 +1290,16 @@
             }
         ];
 
-        // FIX: pull live data from the admin dashboard's localStorage if present
-        // (same keys used by admin-fixed.html), otherwise fall back to defaults
-        // above. This is what actually connects the admin panel to this storefront.
-        function readAdminData(key, fallback) {
-            try {
-                const raw = localStorage.getItem(key);
-                return raw ? JSON.parse(raw) : fallback;
-            } catch (err) {
-                return fallback;
-            }
-        }
-
-        const categories = readAdminData('aymen_admin_categories', defaultCategories);
-        const products = readAdminData('aymen_admin_products', defaultProducts);
-        const storeSettings = readAdminData('aymen_admin_settings', {
+        // يجلب بيانات المتجر الحية: من Firebase أولاً (تُظهر تعديلات كل الزوار)،
+        // وإن لم يكن مُهيّأ بعد يرجع لـ localStorage، وإن لم توجد بيانات محلياً
+        // يستخدم المنتجات الافتراضية بالأسفل.
+        let categories = defaultCategories;
+        let products = defaultProducts;
+        let storeSettings = {
             instaUsername: 'aymen.store14',
             storeName: 'AYMEN.STOR14',
             subtitle: 'أيمن للتجهيزات الرياضية'
-        });
+        };
 
         // ===================== STATE =====================
         let currentProduct = null;
@@ -1215,7 +1309,12 @@
         let searchQuery = '';
 
         // ===================== INIT =====================
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            const live = await fetchCloudStoreData();
+            if (live.categories) categories = live.categories;
+            if (live.products) products = live.products;
+            if (live.settings) storeSettings = live.settings;
+
             applyStoreSettings();
             renderCategories();
             renderProducts();
@@ -1993,8 +2092,8 @@ ${sizeLine}🎨 اللون: ${selectedColor}
         let tempSizes = {};
 
         // ===================== INIT =====================
-        document.addEventListener('DOMContentLoaded', () => {
-            loadAllData();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadAllData();
             checkLogin();
 
             // live preview when a URL is typed/pasted directly
@@ -2020,28 +2119,27 @@ ${sizeLine}🎨 اللون: ${selectedColor}
             }
         }
 
-        function loadAllData() {
-            const savedCats = localStorage.getItem('aymen_admin_categories');
-            const savedProds = localStorage.getItem('aymen_admin_products');
-            const savedSettings = localStorage.getItem('aymen_admin_settings');
+        async function loadAllData() {
+            // Firebase أولاً (نفس البيانات اللي يشوفها كل الزوار)، وإلا localStorage، وإلا الافتراضي
+            const live = await fetchCloudStoreData();
 
-            categories = savedCats ? JSON.parse(savedCats) : [...defaultCategories];
-            products = savedProds ? JSON.parse(savedProds) : [...defaultProducts];
-            settings = savedSettings ? JSON.parse(savedSettings) : {...defaultSettings};
+            categories = live.categories || [...defaultCategories];
+            products = live.products || [...defaultProducts];
+            settings = live.settings || {...defaultSettings};
 
             document.getElementById('settingInsta').value = settings.instaUsername || '';
             document.getElementById('settingStoreName').value = settings.storeName || 'AYMEN.STOR14';
             document.getElementById('settingSubtitle').value = settings.subtitle || 'أيمن للتجهيزات الرياضية';
         }
 
-        function saveAllData() {
-            try {
-                localStorage.setItem('aymen_admin_categories', JSON.stringify(categories));
-                localStorage.setItem('aymen_admin_products', JSON.stringify(products));
-                localStorage.setItem('aymen_admin_settings', JSON.stringify(settings));
-            } catch (err) {
-                // Most likely a localStorage quota error caused by large uploaded images
-                showAdminToast('تعذر الحفظ: المساحة ممتلئة. جرب صور أصغر أو أقل عدداً');
+        async function saveAllData() {
+            const result = await saveCloudStoreData({ categories, products, settings });
+            if (!result.ok && result.reason === 'cloud-error') {
+                // فشل الحفظ على السحابة (اتصال/صلاحيات) — البيانات محفوظة محلياً فقط الآن
+                showAdminToast('تم الحفظ محلياً فقط، تعذر الرفع للسحابة. تحقق من الاتصال أو إعدادات Firebase');
+            } else if (!result.ok && result.reason === 'not-configured') {
+                // Firebase غير مربوط بعد — البيانات محفوظة على هذا الجهاز فقط
+                showAdminToast('تنبيه: Firebase غير مُهيّأ، البيانات محفوظة على جهازك فقط ولن تظهر لباقي الزوار');
             }
         }
 
@@ -2449,7 +2547,6 @@ ${sizeLine}🎨 اللون: ${selectedColor}
                     if (data.products) products = data.products;
                     if (data.settings) settings = data.settings;
                     saveAllData();
-                    loadAllData();
                     updateHomeStats();
                     renderProductsTable();
                     renderCategoriesList();
@@ -2474,7 +2571,9 @@ ${sizeLine}🎨 اللون: ${selectedColor}
             products = [...defaultProducts];
             settings = {...defaultSettings};
             saveAllData();
-            loadAllData();
+            document.getElementById('settingInsta').value = settings.instaUsername || '';
+            document.getElementById('settingStoreName').value = settings.storeName || 'AYMEN.STOR14';
+            document.getElementById('settingSubtitle').value = settings.subtitle || 'أيمن للتجهيزات الرياضية';
             updateHomeStats();
             renderProductsTable();
             renderCategoriesList();
