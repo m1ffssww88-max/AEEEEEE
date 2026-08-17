@@ -360,10 +360,9 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            /* FIX: page is RTL, so with modal-details first in DOM it renders on the
-               right and modal-image-section renders on the left. The rounded corners
-               must therefore be on the LEFT edge, not the right. */
-            border-radius: 20px 0 0 20px;
+            /* الصفحة RTL، والصورة الآن أول عنصر بالـ DOM فتطلع على اليمين
+               بالوضع سطح المكتب، فالزوايا الدائرية لازم تكون على اليمين. */
+            border-radius: 0 20px 20px 0;
         }
 
         @media (max-width: 768px) {
@@ -1271,6 +1270,9 @@
         <div class="modal-content">
             <button class="modal-close" onclick="closeProductModal()"><i class="fas fa-times"></i></button>
             <div class="modal-body">
+                <div class="modal-image-section">
+                    <img class="modal-image" id="modalImage" src="" alt="">
+                </div>
                 <div class="modal-details">
                     <h2 class="modal-product-name" id="modalProductName"></h2>
                     <div class="modal-price-section">
@@ -1279,28 +1281,25 @@
                         <span class="currency">د.ع</span>
                     </div>
 
+                    <div class="detail-section">
+                        <div class="detail-label"><i class="fas fa-info-circle"></i> وصف المنتج</div>
+                        <p class="description-text" id="modalDescription"></p>
+                    </div>
+
                     <div class="detail-section" id="sizesSection">
                         <div class="detail-label"><i class="fas fa-ruler-combined"></i> القياسات المتوفرة</div>
                         <div class="sizes-grid" id="modalSizes"></div>
                     </div>
 
-                    <div class="detail-section">
+                    <div class="detail-section" id="colorsSection">
                         <div class="detail-label"><i class="fas fa-palette"></i> الألوان المتوفرة</div>
                         <div class="colors-list" id="modalColors"></div>
-                    </div>
-
-                    <div class="detail-section">
-                        <div class="detail-label"><i class="fas fa-info-circle"></i> وصف المنتج</div>
-                        <p class="description-text" id="modalDescription"></p>
                     </div>
 
                     <button class="order-btn" onclick="openOrderModal()">
                         <i class="fab fa-instagram"></i>
                         طلب المنتج عبر الانستجرام
                     </button>
-                </div>
-                <div class="modal-image-section">
-                    <img class="modal-image" id="modalImage" src="" alt="">
                 </div>
             </div>
         </div>
@@ -1635,8 +1634,8 @@
                     <div class="product-info">
                         <h3 class="product-name">${p.name}</h3>
                         <div class="price-container">
-                            <span class="old-price">${p.oldPrice.toLocaleString()} د.ع</span>
-                            <span class="current-price">${p.price.toLocaleString()} <span class="currency">د.ع</span></span>
+                            <span class="old-price">${p.oldPrice.toLocaleString('en-US')} د.ع</span>
+                            <span class="current-price">${p.price.toLocaleString('en-US')} <span class="currency">د.ع</span></span>
                         </div>
                     </div>
                 </div>
@@ -1653,6 +1652,11 @@
             return Object.values(product.sizes).some(v => v === true);
         }
 
+        // إذا الأدمن ما ضاف أي لون للمنتج، ما نظهر قسم الألوان أصلاً بالتفاصيل.
+        function hasAvailableColors(product) {
+            return Array.isArray(product.colors) && product.colors.length > 0;
+        }
+
         function openProduct(id) {
             currentProduct = products.find(p => p.id === id);
             if (!currentProduct) return;
@@ -1661,34 +1665,39 @@
             selectedColor = null;
 
             document.getElementById('modalProductName').textContent = currentProduct.name;
-            document.getElementById('modalOldPrice').textContent = currentProduct.oldPrice.toLocaleString() + ' د.ع';
-            document.getElementById('modalCurrentPrice').textContent = currentProduct.price.toLocaleString() + ' د.ع';
+            document.getElementById('modalOldPrice').textContent = currentProduct.oldPrice.toLocaleString('en-US') + ' د.ع';
+            document.getElementById('modalCurrentPrice').textContent = currentProduct.price.toLocaleString('en-US') + ' د.ع';
             document.getElementById('modalImage').src = currentProduct.image;
             document.getElementById('modalDescription').textContent = currentProduct.description;
 
-            // Sizes
+            // Sizes: نعرض فقط القياسات الي فعّلها الأدمن، والباقي ما يظهر أصلاً.
             const sizesSection = document.getElementById('sizesSection');
             if (hasAvailableSizes(currentProduct)) {
                 sizesSection.style.display = '';
                 const sizesContainer = document.getElementById('modalSizes');
                 const sizeList = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
-                sizesContainer.innerHTML = sizeList.map(size => {
-                    const available = currentProduct.sizes[size];
-                    return `<button class="size-btn ${!available ? 'unavailable' : ''}" 
-                                   onclick="selectSize('${size}', ${available})"
-                                   title="${!available ? 'هذا القياس غير متوفر' : ''}">${size}</button>`;
-                }).join('');
+                sizesContainer.innerHTML = sizeList
+                    .filter(size => currentProduct.sizes[size])
+                    .map(size => `<button class="size-btn" onclick="selectSize('${size}', true)">${size}</button>`)
+                    .join('');
             } else {
-                // This product has no sizing (e.g. equipment) - hide the section
-                // and skip the size requirement so it can still be ordered.
+                // هذا المنتج ما إله قياسات (مثل الأجهزة الرياضية) - نخفي القسم
+                // ونتجاوز شرط اختيار القياس عشان الطلب يكمل بدونه.
                 sizesSection.style.display = 'none';
             }
 
-            // Colors
-            const colorsContainer = document.getElementById('modalColors');
-            colorsContainer.innerHTML = currentProduct.colors.map(color => 
-                `<button class="color-btn" onclick="selectColor('${color}')">${color}</button>`
-            ).join('');
+            // Colors: إذا الأدمن ما ضاف ألوان للمنتج، نخفي القسم بالكامل ونتجاوز
+            // شرط اختيار اللون عند الطلب.
+            const colorsSection = document.getElementById('colorsSection');
+            if (hasAvailableColors(currentProduct)) {
+                colorsSection.style.display = '';
+                const colorsContainer = document.getElementById('modalColors');
+                colorsContainer.innerHTML = currentProduct.colors.map(color => 
+                    `<button class="color-btn" onclick="selectColor('${color}')">${color}</button>`
+                ).join('');
+            } else {
+                colorsSection.style.display = 'none';
+            }
 
             document.getElementById('productModal').classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -1719,12 +1728,13 @@
 
         // ===================== ORDER =====================
         function openOrderModal() {
-            // FIX: only require a size if the product actually offers sizes.
+            // نطلب اختيار القياس فقط إذا المنتج فعلاً إله قياسات متوفرة.
             if (hasAvailableSizes(currentProduct) && !selectedSize) {
                 showToast('الرجاء اختيار القياس أولاً');
                 return;
             }
-            if (!selectedColor) {
+            // نطلب اختيار اللون فقط إذا المنتج فعلاً إله ألوان متوفرة.
+            if (hasAvailableColors(currentProduct) && !selectedColor) {
                 showToast('الرجاء اختيار اللون أولاً');
                 return;
             }
@@ -1734,8 +1744,9 @@
             document.getElementById('orderPreviewImage').src = currentProduct.image;
             document.getElementById('orderPreviewName').textContent = currentProduct.name;
             const sizePart = selectedSize ? `القياس: <b>${selectedSize}</b> | ` : '';
+            const colorPart = selectedColor ? `اللون: <b>${selectedColor}</b> | ` : '';
             document.getElementById('orderPreviewDetails').innerHTML = 
-                `${sizePart}اللون: <b>${selectedColor}</b> | السعر: <b>${currentProduct.price.toLocaleString()} د.ع</b>`;
+                `${sizePart}${colorPart}السعر: <b>${currentProduct.price.toLocaleString('en-US')} د.ع</b>`;
 
             document.getElementById('orderModal').classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -1766,13 +1777,13 @@
             const productUrl = window.location.href + '#product-' + currentProduct.id;
 
             const sizeLine = selectedSize ? `📏 القياس: ${selectedSize}\n` : '';
+            const colorLine = selectedColor ? `🎨 اللون: ${selectedColor}\n` : '';
 
             const message = `مرحباً، أريد طلب منتج من متجركم:
 
 📦 المنتج: ${currentProduct.name}
-💰 السعر: ${currentProduct.price.toLocaleString()} د.ع
-${sizeLine}🎨 اللون: ${selectedColor}
-
+💰 السعر: ${currentProduct.price.toLocaleString('en-US')} د.ع
+${sizeLine}${colorLine}
 👤 الاسم: ${name}
 📍 العنوان: ${governorate} - ${area}
 🏠 الشارع: ${street}
@@ -2504,7 +2515,7 @@ ${sizeLine}🎨 اللون: ${selectedColor}
                 return `<tr>
                     <td><strong>${p.name}</strong></td>
                     <td><span class="badge badge-green">${cat?.name || p.category}</span></td>
-                    <td>${p.price.toLocaleString()} د.ع</td>
+                    <td>${p.price.toLocaleString('en-US')} د.ع</td>
                     <td><span class="badge badge-gray">${p.discount || '0%'}</span></td>
                 </tr>`;
             }).join('');
@@ -2521,7 +2532,7 @@ ${sizeLine}🎨 اللون: ${selectedColor}
                     <td><img src="${p.image}" class="product-thumb" onerror="this.src='https://via.placeholder.com/50/222/fff?text=NO+IMG'"></td>
                     <td><strong>${p.name}</strong></td>
                     <td><span class="badge badge-green">${cat?.name || p.category}</span></td>
-                    <td>${p.price.toLocaleString()}</td>
+                    <td>${p.price.toLocaleString('en-US')}</td>
                     <td><span class="badge badge-gray">${p.discount || '-'}</span></td>
                     <td>${availableSizes || '<span style="color:#555">لا يوجد</span>'}</td>
                     <td>
@@ -2937,8 +2948,8 @@ ${sizeLine}🎨 اللون: ${selectedColor}
             const cats = categories.map(c => `<button class="cb" data-c="${c.id}">${c.name}</button>`).join('');
             const prods = products.map(p => {
                 const disc = p.discount ? `<div class="db">خصم ${p.discount}</div>` : '';
-                const oldP = p.oldPrice ? `<span class="op">${p.oldPrice.toLocaleString()} د.ع</span>` : '';
-                return `<div class="pc"><div class="iw"><img src="${p.image}" alt="${p.name}" loading="lazy">${disc}</div><div class="pi"><h3>${p.name}</h3><div class="pr">${oldP}<span class="cp">${p.price.toLocaleString()} <small>د.ع</small></span></div></div></div>`;
+                const oldP = p.oldPrice ? `<span class="op">${p.oldPrice.toLocaleString('en-US')} د.ع</span>` : '';
+                return `<div class="pc"><div class="iw"><img src="${p.image}" alt="${p.name}" loading="lazy">${disc}</div><div class="pi"><h3>${p.name}</h3><div class="pr">${oldP}<span class="cp">${p.price.toLocaleString('en-US')} <small>د.ع</small></span></div></div></div>`;
             }).join('');
 
             return `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${settings.storeName}</title>
