@@ -590,8 +590,8 @@
         .confirm-order-btn {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, #e1306c, #fd1d1d);
-            color: white;
+            background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+            color: #000;
             border: none;
             border-radius: 12px;
             font-size: 18px;
@@ -607,7 +607,17 @@
 
         .confirm-order-btn:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(225, 48, 108, 0.4);
+            box-shadow: 0 8px 25px rgba(200, 245, 66, 0.4);
+        }
+
+        .confirm-order-btn:disabled,
+        .confirm-order-btn.sent {
+            background: var(--unavailable);
+            color: #ddd;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 1;
         }
 
         /* Toast Notification */
@@ -857,6 +867,31 @@
         #adminOverlay .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 25px; color: var(--text-gray); cursor: pointer; transition: all 0.3s; border-right: 3px solid transparent; font-size: 15px; }
         #adminOverlay .nav-item:hover, #adminOverlay .nav-item.active { background: rgba(200, 245, 66, 0.05); color: var(--primary-green); border-right-color: var(--primary-green); }
         #adminOverlay .nav-item i { width: 22px; text-align: center; }
+        #adminOverlay .nav-badge { margin-right: auto; background: var(--red); color: #fff; font-size: 11px; font-weight: bold; min-width: 20px; height: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+
+        #adminOverlay .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+        #adminOverlay .order-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; transition: all 0.3s; }
+        #adminOverlay .order-card.is-new { border-color: var(--primary-green); box-shadow: 0 0 0 1px rgba(200,245,66,0.25); }
+        #adminOverlay .order-card-head { display: flex; gap: 12px; align-items: center; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; }
+        #adminOverlay .order-card-head img { width: 55px; height: 55px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border-color); flex-shrink: 0; }
+        #adminOverlay .order-card-head h4 { font-size: 15px; margin-bottom: 4px; color: var(--text-white); }
+        #adminOverlay .order-card-head p { font-size: 13px; color: var(--primary-green); font-weight: 600; }
+        #adminOverlay .order-time { margin-right: auto; font-size: 11px; color: var(--text-gray); white-space: nowrap; }
+        #adminOverlay .order-info-row { display: flex; gap: 8px; font-size: 13.5px; color: var(--text-gray); margin-bottom: 8px; line-height: 1.6; }
+        #adminOverlay .order-info-row i { width: 18px; color: var(--primary-green); margin-top: 3px; }
+        #adminOverlay .order-info-row b { color: var(--text-white); font-weight: 600; }
+        #adminOverlay .order-status-row { margin: 15px 0; }
+        #adminOverlay .order-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 15px; }
+        #adminOverlay .order-action-btn { padding: 9px 6px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-gray); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; }
+        #adminOverlay .order-action-btn:hover { border-color: var(--primary-green); color: var(--primary-green); }
+        #adminOverlay .order-action-btn.confirmed.active { background: rgba(200,245,66,0.15); border-color: var(--primary-green); color: var(--primary-green); }
+        #adminOverlay .order-action-btn.postponed.active { background: rgba(255,149,0,0.15); border-color: var(--orange); color: var(--orange); }
+        #adminOverlay .order-action-btn.delivered.active { background: rgba(0,122,255,0.15); border-color: var(--blue); color: var(--blue); }
+        #adminOverlay .order-delete-btn { margin-top: 10px; width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--red); color: var(--red); border-radius: 8px; font-size: 12.5px; cursor: pointer; transition: all 0.2s; }
+        #adminOverlay .order-delete-btn:hover { background: var(--red); color: #fff; border-style: solid; }
+        #adminOverlay .order-expiry-note { margin-top: 10px; font-size: 11.5px; color: var(--blue); background: rgba(0,122,255,0.08); padding: 8px 10px; border-radius: 8px; text-align: center; }
+        #adminOverlay .empty-state { text-align: center; padding: 60px 20px; color: var(--text-gray); }
+        #adminOverlay .empty-state i { font-size: 40px; margin-bottom: 15px; color: var(--border-color); display: block; }
 
         #adminOverlay .nav-item.back-to-store {
             color: var(--primary-green);
@@ -1052,12 +1087,19 @@
                      allow read: if true;
                      allow write: if request.auth != null;
                    }
+                   match /aymen_store_orders/{orderId} {
+                     allow create: if true;
+                     allow read, update, delete: if request.auth != null;
+                   }
                  }
                }
 
             هذا يخلي القراءة مفتوحة للجميع (المتجر يشتغل عادي)، لكن
             الكتابة/التعديل تصير محصورة فقط بمن سجل دخول عبر الحساب
-            اللي أنشأته بالخطوة (أ).
+            اللي أنشأته بالخطوة (أ). طلبات الزبائن (aymen_store_orders)
+            استثناء: أي زائر يقدر "ينشئ" طلب جديد (عشان يقدر يطلب من
+            المتجر بدون تسجيل دخول)، لكن قراءة/تعديل/حذف الطلبات تبقى
+            حصراً على حساب الأدمن فقط.
 
          قبل ما تسوي هذا، الموقع سيستمر يشتغل محلياً (localStorage) فقط
          على نفس متصفحك، تماماً متل قبل — بس بدون مزامنة مع الزوار.
@@ -1079,6 +1121,7 @@
         let cloudDb = null;
         let cloudMetaRef = null;      // مستند صغير: تصنيفات + إعدادات فقط (بدون صور)
         let cloudProductsRef = null;  // مجموعة: كل منتج له مستنده الخاص (فيه صورته)
+        let cloudOrdersRef = null;    // مجموعة: طلبات الزبائن (تسجّل بدل التحويل للانستجرام)
         let cloudAuth = null;
 
         if (FIREBASE_CONFIGURED) {
@@ -1087,6 +1130,7 @@
                 cloudDb = firebase.firestore();
                 cloudMetaRef = cloudDb.collection('aymen_store').doc('meta');
                 cloudProductsRef = cloudDb.collection('aymen_store_products');
+                cloudOrdersRef = cloudDb.collection('aymen_store_orders');
                 cloudAuth = firebase.auth();
             } catch (err) {
                 console.error('تعذر تهيئة Firebase:', err);
@@ -1297,8 +1341,8 @@
                     </div>
 
                     <button class="order-btn" onclick="openOrderModal()">
-                        <i class="fab fa-instagram"></i>
-                        طلب المنتج عبر الانستجرام
+                        <i class="fas fa-paper-plane"></i>
+                        اطلب المنتج الآن
                     </button>
                 </div>
             </div>
@@ -1311,7 +1355,7 @@
             <button class="modal-close" onclick="closeOrderModal()"><i class="fas fa-times"></i></button>
             <div class="modal-body">
                 <h3 style="color: var(--primary-green); margin-bottom: 20px; text-align: center;">
-                    <i class="fab fa-instagram"></i> تأكيد الطلب
+                    <i class="fas fa-clipboard-check"></i> تأكيد الطلب
                 </h3>
 
                 <div class="order-product-preview">
@@ -1360,9 +1404,9 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="confirm-order-btn">
-                        <i class="fab fa-instagram"></i>
-                        تأكيد الطلب وفتح الانستجرام
+                    <button type="submit" class="confirm-order-btn" id="confirmOrderBtn">
+                        <i class="fas fa-paper-plane"></i>
+                        <span id="confirmOrderBtnText">إرسال الطلب</span>
                     </button>
                 </form>
             </div>
@@ -1375,12 +1419,12 @@
         <span id="toastMessage"></span>
     </div>
 
-    <!-- Redirect Overlay: يظهر لحظة تأكيد الطلب أثناء التحويل لإنستغرام -->
+    <!-- Redirect Overlay: يظهر لحظة إرسال الطلب لحين تسجيله بلوحة الإدارة -->
     <div class="redirect-overlay" id="redirectOverlay">
         <div class="redirect-box">
             <div class="redirect-spinner"></div>
-            <div class="redirect-title">سيتم تحويل طلبك إلى المتجر</div>
-            <div class="redirect-sub">انتظر قليلاً، جاري التحويل للانستجرام...</div>
+            <div class="redirect-title">جاري إرسال طلبك</div>
+            <div class="redirect-sub">انتظر قليلاً، جاري تسجيل الطلب...</div>
         </div>
     </div>
 
@@ -1757,8 +1801,12 @@
             document.body.style.overflow = '';
         }
 
-        function submitOrder(e) {
+        async function submitOrder(e) {
             e.preventDefault();
+
+            const confirmBtn = document.getElementById('confirmOrderBtn');
+            const confirmBtnText = document.getElementById('confirmOrderBtnText');
+            if (confirmBtn.disabled) return; // منع الإرسال المتكرر بالضغط السريع
 
             const name = document.getElementById('userName').value.trim();
             const governorate = document.getElementById('userGovernorate').value.trim();
@@ -1768,68 +1816,66 @@
             const phone = document.getElementById('userPhone').value.trim();
             const phone2 = document.getElementById('userPhone2').value.trim();
 
-            // Save user data
+            // Save user data (لتعبئة النموذج تلقائياً بالمرة الجاية)
             const userData = { name, governorate, area, street, landmark, phone, phone2 };
             localStorage.setItem('aymen_store_user', JSON.stringify(userData));
 
-            // Build message
-            const instaUser = storeSettings.instaUsername || 'aymen.store14';
-            const productUrl = window.location.href + '#product-' + currentProduct.id;
+            // تجهيز بيانات الطلب لتسجيله في لوحة الإدارة (بدل التحويل للانستجرام)
+            const orderData = {
+                id: 'order_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                productId: currentProduct.id,
+                productName: currentProduct.name,
+                productImage: currentProduct.image,
+                price: currentProduct.price,
+                size: selectedSize || null,
+                color: selectedColor || null,
+                name, governorate, area, street, landmark, phone, phone2,
+                status: 'جديد', // جديد | مؤكد | مؤجل | وصل
+                createdAt: Date.now(),
+                deliveredAt: null
+            };
 
-            const sizeLine = selectedSize ? `📏 القياس: ${selectedSize}\n` : '';
-            const colorLine = selectedColor ? `🎨 اللون: ${selectedColor}\n` : '';
+            // نعطّل الزر ونحوّله للون الرمادي فوراً حتى ما يضغط الزبون مرتين
+            confirmBtn.disabled = true;
+            confirmBtn.classList.add('sent');
+            confirmBtn.querySelector('i').className = 'fas fa-check';
+            confirmBtnText.textContent = 'تم إرسال الطلب';
 
-            const message = `مرحباً، أريد طلب منتج من متجركم:
-
-📦 المنتج: ${currentProduct.name}
-💰 السعر: ${currentProduct.price.toLocaleString('en-US')} د.ع
-${sizeLine}${colorLine}
-👤 الاسم: ${name}
-📍 العنوان: ${governorate} - ${area}
-🏠 الشارع: ${street}
-📌 أقرب نقطة دالة: ${landmark}
-📱 الهاتف: ${phone}${phone2 ? '\n📱 الهاتف الثاني: ' + phone2 : ''}
-
-رابط المنتج: ${productUrl}`;
-
-            // نظهر رسالة الانتظار فوراً
             document.getElementById('redirectOverlay').classList.add('show');
 
-            // IMPORTANT: نفتح رابط انستغرام فوراً وبدون أي تأخير (setTimeout)،
-            // لأن المتصفحات على الجوال (خصوصاً آيفون) تفتح التطبيق تلقائياً بس
-            // إذا صار الطلب بنفس لحظة ضغطة الزبون. أي تأخير يخلي المتصفح يفتحها
-            // كصفحة ويب عادية بدل التطبيق.
-            window.open(`https://ig.me/m/${instaUser}`, '_blank');
+            await saveOrderToCloud(orderData);
 
-            // نسخ تفاصيل الطلب للحافظة يصير بالتوازي، ما نوقف عليه التحويل
-            // (إنستغرام ما يدعم رسالة جاهزة تلقائياً بالرابط، فالزبون يلصقها بس يوصل للمحادثة)
-            copyOrderMessage(message);
+            document.getElementById('redirectOverlay').classList.remove('show');
+            showToast('تم إرسال طلبك بنجاح، سنتواصل معك قريباً لتأكيد الحجز');
 
-            // احتياط: لو لأي سبب ما صار التحويل، ما نخلي الزبون عالق خلف الشاشة
             setTimeout(() => {
-                document.getElementById('redirectOverlay').classList.remove('show');
                 closeOrderModal();
-            }, 2500);
+                // إعادة تهيئة الزر حتى يشتغل بشكل طبيعي بالمرة الجاية
+                confirmBtn.disabled = false;
+                confirmBtn.classList.remove('sent');
+                confirmBtn.querySelector('i').className = 'fas fa-paper-plane';
+                confirmBtnText.textContent = 'إرسال الطلب';
+            }, 1800);
         }
 
-        function copyOrderMessage(message) {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(message).catch(() => fallbackCopyOrderMessage(message));
-            } else {
-                fallbackCopyOrderMessage(message);
-            }
-        }
-
-        function fallbackCopyOrderMessage(message) {
+        // يحفظ الطلب على Firebase (يظهر فوراً بلوحة إدارة الأدمن)، ونسخة
+        // احتياطية محلية دائماً حتى لو Firebase غير مربوط بعد.
+        async function saveOrderToCloud(order) {
             try {
-                const textArea = document.createElement('textarea');
-                textArea.value = message;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
+                const local = JSON.parse(localStorage.getItem('aymen_store_orders') || '[]');
+                local.unshift(order);
+                localStorage.setItem('aymen_store_orders', JSON.stringify(local.slice(0, 300)));
             } catch (err) {
-                console.error('تعذر نسخ تفاصيل الطلب:', err);
+                console.error('تعذر حفظ الطلب محلياً:', err);
+            }
+
+            if (!cloudOrdersRef) return { ok: false, reason: 'not-configured' };
+            try {
+                await cloudOrdersRef.doc(order.id).set(order);
+                return { ok: true };
+            } catch (err) {
+                console.error('تعذر حفظ الطلب على Firebase:', err);
+                return { ok: false, reason: 'cloud-error' };
             }
         }
 
@@ -1935,6 +1981,10 @@ ${sizeLine}${colorLine}
                 <div class="nav-item" onclick="showPage('products', this)">
                     <i class="fas fa-box"></i> المنتجات
                 </div>
+                <div class="nav-item" onclick="showPage('orders', this)" id="ordersNavItem">
+                    <i class="fas fa-shopping-bag"></i> الطلبات
+                    <span class="nav-badge" id="ordersBadge" style="display:none;">0</span>
+                </div>
                 <div class="nav-item" onclick="showPage('categories', this)">
                     <i class="fas fa-tags"></i> التصنيفات
                 </div>
@@ -1983,6 +2033,11 @@ ${sizeLine}${colorLine}
                         <div class="stat-value" id="statTopCat">-</div>
                         <div class="stat-label">أكثر تصنيف</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="fas fa-shopping-bag"></i></div>
+                        <div class="stat-value" id="statNewOrders">0</div>
+                        <div class="stat-label">طلبات جديدة</div>
+                    </div>
                 </div>
                 <div class="section-card">
                     <div class="section-header">
@@ -2024,6 +2079,18 @@ ${sizeLine}${colorLine}
                         <tbody id="productsTable"></tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- ORDERS -->
+            <div id="page-orders" style="display:none;">
+                <div class="page-header">
+                    <h1 class="page-title">إدارة <span>الطلبات</span></h1>
+                    <span style="color: var(--text-gray); font-size: 13px;">
+                        <i class="fas fa-info-circle"></i>
+                        عند اختيار "وصل" يُحذف الطلب تلقائياً بعد 5 ساعات
+                    </span>
+                </div>
+                <div id="ordersContainer" class="orders-grid"></div>
             </div>
 
             <!-- CATEGORIES -->
@@ -2355,6 +2422,9 @@ ${sizeLine}${colorLine}
         let editingProductId = null;
         let tempColors = [];
         let tempSizes = {};
+        let orders = [];
+        let ordersListenerActive = false;
+        let ordersPurgeInterval = null;
 
         // ===================== INIT =====================
         document.addEventListener('DOMContentLoaded', async () => {
@@ -2475,6 +2545,10 @@ ${sizeLine}${colorLine}
             updateHomeStats();
             renderProductsTable();
             renderCategoriesList();
+            startOrdersListener();
+            if (window.Notification && Notification.permission === 'default') {
+                Notification.requestPermission().catch(() => {});
+            }
         }
 
         // ===================== NAVIGATION =====================
@@ -2488,6 +2562,7 @@ ${sizeLine}${colorLine}
             if (page === 'home') updateHomeStats();
             if (page === 'products') renderProductsTable();
             if (page === 'categories') renderCategoriesList();
+            if (page === 'orders') renderOrdersList();
             if (page === 'preview') refreshPreview();
 
             document.getElementById('sidebar').classList.remove('open');
@@ -2509,6 +2584,9 @@ ${sizeLine}${colorLine}
             const topCatName = topCat ? (categories.find(c => c.id === topCat[0])?.name || topCat[0]) : '-';
             document.getElementById('statTopCat').textContent = topCatName;
 
+            const statNewOrdersEl = document.getElementById('statNewOrders');
+            if (statNewOrdersEl) statNewOrdersEl.textContent = orders.filter(o => o.status === 'جديد').length;
+
             const recent = [...products].reverse().slice(0, 5);
             document.getElementById('recentProductsTable').innerHTML = recent.map(p => {
                 const cat = categories.find(c => c.id === p.category);
@@ -2521,7 +2599,212 @@ ${sizeLine}${colorLine}
             }).join('');
         }
 
-        // ===================== PRODUCTS =====================
+        // ===================== ORDERS =====================
+        // يستمع لطلبات الزبائن لحظة وصولها (Firebase) بدل انتظار تحديث الصفحة،
+        // ويطلق تنبيه صوتي + إشعار متصفح (إن سمح الأدمن به) عند وصول طلب جديد.
+        function startOrdersListener() {
+            if (ordersListenerActive) return;
+            ordersListenerActive = true;
+
+            if (!ordersPurgeInterval) {
+                purgeExpiredOrders();
+                ordersPurgeInterval = setInterval(purgeExpiredOrders, 5 * 60 * 1000); // كل 5 دقائق
+            }
+
+            if (!cloudOrdersRef) {
+                // لا يوجد Firebase مربوط: نعرض فقط طلبات هذا الجهاز من localStorage
+                orders = JSON.parse(localStorage.getItem('aymen_store_orders') || '[]');
+                renderOrdersList();
+                updateOrdersBadge();
+                updateHomeStats();
+                return;
+            }
+
+            let firstSnapshot = true;
+            cloudOrdersRef.orderBy('createdAt', 'desc').onSnapshot((snap) => {
+                orders = snap.docs.map(d => d.data());
+
+                if (!firstSnapshot) {
+                    snap.docChanges().forEach(change => {
+                        if (change.type === 'added') {
+                            notifyNewOrder(change.doc.data());
+                        }
+                    });
+                }
+                firstSnapshot = false;
+
+                renderOrdersList();
+                updateOrdersBadge();
+                updateHomeStats();
+                purgeExpiredOrders();
+            }, (err) => {
+                console.error('تعذر الاستماع الحي لتحديثات الطلبات:', err);
+                orders = JSON.parse(localStorage.getItem('aymen_store_orders') || '[]');
+                renderOrdersList();
+                updateOrdersBadge();
+            });
+        }
+
+        function renderOrdersList() {
+            const container = document.getElementById('ordersContainer');
+            if (!container) return;
+
+            if (!orders.length) {
+                container.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
+                    <i class="fas fa-inbox"></i>
+                    لا توجد طلبات حالياً
+                </div>`;
+                return;
+            }
+
+            container.innerHTML = orders.map(o => {
+                const timeStr = o.createdAt ? new Date(o.createdAt).toLocaleString('ar-IQ', { dateStyle: 'short', timeStyle: 'short' }) : '';
+                const sizeColor = [o.size ? `القياس: <b>${o.size}</b>` : '', o.color ? `اللون: <b>${o.color}</b>` : ''].filter(Boolean).join(' | ');
+                const isNew = o.status === 'جديد';
+
+                let expiryNote = '';
+                if (o.status === 'وصل' && o.deliveredAt) {
+                    const deleteAt = new Date(o.deliveredAt + 5 * 60 * 60 * 1000);
+                    expiryNote = `<div class="order-expiry-note"><i class="fas fa-clock"></i> سيُحذف تلقائياً الساعة ${deleteAt.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</div>`;
+                }
+
+                return `<div class="order-card ${isNew ? 'is-new' : ''}">
+                    <div class="order-card-head">
+                        <img src="${o.productImage || ''}" alt="${o.productName || ''}" onerror="this.style.display='none'">
+                        <div>
+                            <h4>${o.productName || 'منتج'}</h4>
+                            <p>${(o.price || 0).toLocaleString('en-US')} د.ع</p>
+                        </div>
+                        <span class="order-time">${timeStr}</span>
+                    </div>
+
+                    ${sizeColor ? `<div class="order-info-row"><i class="fas fa-ruler"></i> ${sizeColor}</div>` : ''}
+                    <div class="order-info-row"><i class="fas fa-user"></i> <b>${o.name || '-'}</b></div>
+                    <div class="order-info-row"><i class="fas fa-phone"></i> <b>${o.phone || '-'}</b>${o.phone2 ? ' / ' + o.phone2 : ''}</div>
+                    <div class="order-info-row"><i class="fas fa-map-marker-alt"></i> ${o.governorate || ''} - ${o.area || ''}</div>
+                    <div class="order-info-row"><i class="fas fa-road"></i> ${o.street || '-'}</div>
+                    <div class="order-info-row"><i class="fas fa-map-pin"></i> ${o.landmark || '-'}</div>
+
+                    <div class="order-actions">
+                        <button class="order-action-btn confirmed ${o.status === 'مؤكد' ? 'active' : ''}" onclick="setOrderStatus('${o.id}', 'مؤكد')">
+                            <i class="fas fa-check"></i> تم تسجيل الطلب
+                        </button>
+                        <button class="order-action-btn postponed ${o.status === 'مؤجل' ? 'active' : ''}" onclick="setOrderStatus('${o.id}', 'مؤجل')">
+                            <i class="fas fa-clock"></i> تأجيل
+                        </button>
+                        <button class="order-action-btn delivered ${o.status === 'وصل' ? 'active' : ''}" onclick="setOrderStatus('${o.id}', 'وصل')">
+                            <i class="fas fa-box-open"></i> وصل
+                        </button>
+                    </div>
+                    ${expiryNote}
+                    <button class="order-delete-btn" onclick="deleteOrderConfirm('${o.id}')"><i class="fas fa-trash"></i> حذف الطلب</button>
+                </div>`;
+            }).join('');
+        }
+
+        function updateOrdersBadge() {
+            const badge = document.getElementById('ordersBadge');
+            if (!badge) return;
+            const count = orders.filter(o => o.status === 'جديد').length;
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        async function setOrderStatus(orderId, status) {
+            const updates = { status };
+            updates.deliveredAt = (status === 'وصل') ? Date.now() : null;
+
+            const idx = orders.findIndex(o => o.id === orderId);
+            if (idx > -1) orders[idx] = { ...orders[idx], ...updates };
+            renderOrdersList();
+            updateOrdersBadge();
+            updateHomeStats();
+
+            if (cloudOrdersRef) {
+                try {
+                    await cloudOrdersRef.doc(orderId).update(updates);
+                } catch (err) {
+                    console.error('تعذر تحديث حالة الطلب على Firebase:', err);
+                    showAdminToast('تعذر تحديث حالة الطلب على السحابة، حاول مرة أخرى');
+                }
+            }
+            try {
+                const local = JSON.parse(localStorage.getItem('aymen_store_orders') || '[]');
+                const li = local.findIndex(o => o.id === orderId);
+                if (li > -1) { local[li] = { ...local[li], ...updates }; localStorage.setItem('aymen_store_orders', JSON.stringify(local)); }
+            } catch (err) { console.error(err); }
+
+            const msg = status === 'وصل' ? 'تم تعليم الطلب كواصل، سيُحذف تلقائياً بعد 5 ساعات'
+                       : status === 'مؤجل' ? 'تم تأجيل الطلب'
+                       : 'تم تسجيل الطلب';
+            showAdminToast(msg);
+        }
+
+        function deleteOrderConfirm(orderId) {
+            if (!confirm('حذف هذا الطلب نهائياً؟')) return;
+            deleteOrderFromCloud(orderId);
+        }
+
+        async function deleteOrderFromCloud(orderId) {
+            orders = orders.filter(o => o.id !== orderId);
+            renderOrdersList();
+            updateOrdersBadge();
+            updateHomeStats();
+
+            if (cloudOrdersRef) {
+                try { await cloudOrdersRef.doc(orderId).delete(); }
+                catch (err) { console.error('تعذر حذف الطلب من Firebase:', err); }
+            }
+            try {
+                const local = JSON.parse(localStorage.getItem('aymen_store_orders') || '[]').filter(o => o.id !== orderId);
+                localStorage.setItem('aymen_store_orders', JSON.stringify(local));
+            } catch (err) { console.error(err); }
+        }
+
+        // يحذف تلقائياً كل طلب معلّم "وصل" مرّ عليه 5 ساعات فأكثر
+        function purgeExpiredOrders() {
+            const FIVE_HOURS = 5 * 60 * 60 * 1000;
+            const now = Date.now();
+            const expired = orders.filter(o => o.status === 'وصل' && o.deliveredAt && (now - o.deliveredAt) >= FIVE_HOURS);
+            expired.forEach(o => deleteOrderFromCloud(o.id));
+        }
+
+        // تنبيه الأدمن بطلب جديد: توست داخل اللوحة + صوت + إشعار متصفح حقيقي
+        // (إشعار المتصفح يحتاج إذن المستخدم، ويعمل حتى لو التبويب بالخلفية،
+        // لكن ليس لو المتصفح مغلق بالكامل — هذا حد تقني عام لأي موقع ويب).
+        function notifyNewOrder(order) {
+            showAdminToast('🔔 طلب جديد من ' + (order.name || 'زبون') + ' - ' + (order.productName || 'منتج'));
+            playNotifySound();
+            if (window.Notification && Notification.permission === 'granted') {
+                try {
+                    new Notification('طلب جديد 🛍️', {
+                        body: `${order.name || 'زبون'} طلب "${order.productName || 'منتج'}"`,
+                    });
+                } catch (err) { console.error(err); }
+            }
+        }
+
+        function playNotifySound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.connect(g); g.connect(ctx.destination);
+                o.type = 'sine';
+                o.frequency.value = 880;
+                g.gain.setValueAtTime(0.001, ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                o.start();
+                o.stop(ctx.currentTime + 0.4);
+            } catch (err) { /* تجاهل إذا المتصفح ما يدعم الصوت */ }
+        }
+
+
         function renderProductsTable() {
             const tbody = document.getElementById('productsTable');
             tbody.innerHTML = products.map(p => {
@@ -3037,6 +3320,8 @@ body{background:#0a0a0a;color:#fff;}
     window.importData = importData;
     window.openAdminAccess = openAdminAccess;
     window.closeAdminOverlay = closeAdminOverlay;
+    window.setOrderStatus = setOrderStatus;
+    window.deleteOrderConfirm = deleteOrderConfirm;
 })();
 
     </script>
